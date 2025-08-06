@@ -77,8 +77,8 @@ void setup()
   oled.setCShigh();   // set all CS to high to disable the displays
   oled.startup();     // reset all displays
 
+  // this works fine
   oled.defaultConfigure();
-
   oled.clearDisplay();
   oled.fillDisplay(0x00FF);
   delay(1000);
@@ -86,9 +86,11 @@ void setup()
   oled.println("Hello");
   oled.setCursor(20,20);
   oled.print(9);
+  oled.setCShigh();
 
   delay(1000);
 
+  // only noise on the screen 
   oled8.defaultConfigure();
   oled8.clearDisplay();
   oled8.fillDisplay(0xFF00);
@@ -100,6 +102,16 @@ void setup()
   oled8.setCShigh();
   
   delay(1000);
+  // this works
+  oled.setCursor(0,40);
+  oled.println("again");
+  oled.setCShigh();
+
+  delay(1000);
+  // this not
+  oled8.setCursor(0,40);
+  oled8.println("goes around");
+  oled8.setCShigh();
 
   // for( int i = 1; i < 9; i++)
   // {

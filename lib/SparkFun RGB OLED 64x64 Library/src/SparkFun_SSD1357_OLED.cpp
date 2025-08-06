@@ -298,7 +298,7 @@ void SSD1357::setCSlow( void )
 	else
 	{
 		digitalWrite(PIN_LATCH, LOW);
-		_spi->beginTransaction(SPISettings(_spiFreq, SSD1357_SPI_DATA_ORDER, SSD1357_SPI_MODE));
+		_spi->beginTransaction(SPISettings(_spiFreq, SSD1357_SPI_DATA_ORDER, SPI_MODE3));
 		_spi->transfer(&mask, 1);			
 		_spi->endTransaction();
 		digitalWrite(PIN_LATCH, HIGH);		
@@ -310,7 +310,7 @@ void SSD1357::setCShigh(void)
 	digitalWrite(PIN_CS9, HIGH);
 	digitalWrite(PIN_LATCH, LOW);
 	uint8_t temp_buff[] = {0xFF};
-	_spi->beginTransaction(SPISettings(_spiFreq, SSD1357_SPI_DATA_ORDER, SSD1357_SPI_MODE));
+	_spi->beginTransaction(SPISettings(_spiFreq, SSD1357_SPI_DATA_ORDER, SPI_MODE3));
 	_spi->transfer(temp_buff, 1);			
 	_spi->endTransaction();
 	digitalWrite(PIN_LATCH, HIGH);
