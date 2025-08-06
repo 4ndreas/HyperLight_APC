@@ -20,8 +20,17 @@ void onInit()
 }
 
 // Instantiate SparkFun RGB OLED object
+// 8 Displays CS Pins are connected to a 74HC595 shift register the 9 display CS pins is connected directly to GPIO_NUM_12
 RGB_OLED_64x64 oled;
+RGB_OLED_64x64 oled1;
+RGB_OLED_64x64 oled2;
+RGB_OLED_64x64 oled3;
+RGB_OLED_64x64 oled4;
+RGB_OLED_64x64 oled5;
+RGB_OLED_64x64 oled6;
+RGB_OLED_64x64 oled7;
 RGB_OLED_64x64 oled8;
+
 // // Pin definitions
 const uint8_t PIN_SDIN   = SD_MOSI;  // MOSI
 const uint8_t PIN_SCLK   = SD_SCK;  // SCK
@@ -59,46 +68,38 @@ void setup()
   digitalWrite(USB_CS, HIGH);  	
 
   SPI.begin(SD_SCK, SD_MISO, SD_MOSI, -1);
- 
+
+  oled.begin(PIN_DC, PIN_RESET, 9, SPI, 10000000);
+  oled7.begin(PIN_DC, PIN_RESET, 7, SPI, 10000000);
+  oled8.begin(PIN_DC, PIN_RESET, 8, SPI, 10000000);
+
+  // Initialize OLED library
   oled.setCShigh();   // set all CS to high to disable the displays
   oled.startup();     // reset all displays
- 
-  // Initialize OLED library
-  // oled.setDisplay(9);
-  // oled.begin(PIN_DC, PIN_RESET, PIN_CS9, SPI, 10000000);    // call this only once since it resets all the displays
-  oled.begin(PIN_DC, PIN_RESET, 9, SPI, 10000000);    // call this only once since it resets all the displays
+
   oled.defaultConfigure();
 
-  oled.clearDisplay();            // Fills the screen with black
-  oled.fillDisplay(0xFF00);       
-  oled.setCursor(0,0);            // Sets the cursor relative to the display. (0,0) is the upper left corner and (63,63) is the lower right
-  oled.println("Hello");   // Prints using the default font at the cursor location
+  oled.clearDisplay();
+  oled.fillDisplay(0x00FF);
+  delay(1000);
+  oled.setCursor(0,0);
+  oled.println("Hello");
   oled.setCursor(20,20);
   oled.print(9);
-  // oled.setCShigh();
 
-  // oled.setDisplay(-1);
   delay(1000);
 
-  // oled8.setDisplay(8);
-  oled8.begin(PIN_DC, PIN_RESET, 8, SPI, 10000000);    // call this only once since it resets all the displays
   oled8.defaultConfigure();
-
-  oled8.clearDisplay();    
-  oled8.fillDisplay(0xFF00);        
-  // oled8.setCursor(0,0);            
-  // oled8.println("World");
-  // oled8.println("abcdefg");
-  // oled8.setCursor(20,20);
-  // oled8.println(8);
-  // oled8.setCShigh();
+  oled8.clearDisplay();
+  oled8.fillDisplay(0xFF00);
+  oled8.setCursor(0,0);
+  delay(1000);
+  oled8.println("World");
+  oled8.setCursor(20,20);
+  oled8.println(8);
+  oled8.setCShigh();
   
   delay(1000);
-
-  // oled8.setDisplay(-1);
-
-
-  // delay(5000);
 
   // for( int i = 1; i < 9; i++)
   // {

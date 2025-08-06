@@ -9,13 +9,15 @@ RGB_OLED_64x64::RGB_OLED_64x64()
 
 }
 
-void RGB_OLED_64x64::begin(uint8_t dcPin, uint8_t rstPin, uint8_t csPin, SPIClass &spiInterface, uint32_t spiFreq)
+void RGB_OLED_64x64::begin(uint8_t dcPin, uint8_t rstPin, uint8_t idx, SPIClass &spiInterface, uint32_t spiFreq)
 {
 	// Associate 
 	_dc = dcPin;
 	_rst = rstPin;
 	// _cs = csPin;
-	displayIdx = csPin;
+	// displayIdx = csPin;
+	setDisplay(idx);
+
 	_spi = &spiInterface;
 
 	_spiFreq = spiFreq;

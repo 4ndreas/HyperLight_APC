@@ -207,20 +207,19 @@ void MicroviewMonochromeProgMemBMPFont::Wrapper_to_call_setCursorValues(void * p
 	self->setCursorValues(x, y, xReset, yReset, xMargin, yMargin);
 }
 
-
-
-
 SSD1357::SSD1357( void )
 {
 	
 }
 
-void SSD1357::begin(uint8_t dcPin, uint8_t rstPin, uint8_t csPin, SPIClass &spiInterface, uint32_t spiFreq)
+void SSD1357::begin(uint8_t dcPin, uint8_t rstPin, uint8_t idx, SPIClass &spiInterface, uint32_t spiFreq)
 {
 	// Associate 
 	_dc = dcPin;
 	_rst = rstPin;
-	_cs = csPin;
+	// _cs = csPin;
+	setDisplay(idx);
+
 	_spi = &spiInterface;
 
 	_spiFreq = spiFreq;
@@ -230,14 +229,14 @@ void SSD1357::begin(uint8_t dcPin, uint8_t rstPin, uint8_t csPin, SPIClass &spiI
 	linkDefaultFont();
 
 	// Set pinmodes
-	pinMode(_cs, OUTPUT);
-	pinMode(_rst, OUTPUT);
-	pinMode(_dc, OUTPUT);
+	// pinMode(_cs, OUTPUT);
+	// pinMode(_rst, OUTPUT);
+	// pinMode(_dc, OUTPUT);
 
-	// Set pins to default positions
-	digitalWrite(_cs, HIGH);
-	digitalWrite(_rst, HIGH);
-	digitalWrite(_dc, HIGH);
+	// // Set pins to default positions
+	// digitalWrite(_cs, HIGH);
+	// digitalWrite(_rst, HIGH);
+	// digitalWrite(_dc, HIGH);
 
 
 	// Power up the device
@@ -274,65 +273,47 @@ void SSD1357::begin(uint8_t dcPin, uint8_t rstPin, uint8_t csPin, SPIClass &spiI
 	*/
 
 	// try starting SPI with a simple byte transmisssion to 'set' the SPI peripherals
-	uint8_t temp_buff[1];
-	_spi->beginTransaction(SPISettings(_spiFreq, SSD1357_SPI_DATA_ORDER, SSD1357_SPI_MODE));
-	_spi->transfer(temp_buff, 1);
-	_spi->endTransaction();
+	// uint8_t temp_buff[1];
+	// _spi->beginTransaction(SPISettings(_spiFreq, SSD1357_SPI_DATA_ORDER, SSD1357_SPI_MODE));
+	// _spi->transfer(temp_buff, 1);
+	// _spi->endTransaction();
 
-	startup();	// It really bothers me that I have to call startup twice... I've trid adding more of a delay - oh! Maybe there is a SPI problem. Bingo. See note above
+	// startup();	// It really bothers me that I have to call startup twice... I've trid adding more of a delay - oh! Maybe there is a SPI problem. Bingo. See note above
 }
 
 void SSD1357::setDisplay(int idx)
 {
 	displayIdx = idx;
-	// setCShigh();
-	// if(idx == -1)
-	// {
-	// 	digitalWrite(PIN_LATCH, LOW);
-	//     SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE3));
-	//     SPI.write(0x00);
-    //     SPI.endTransaction();
-	// 	digitalWrite(PIN_LATCH, HIGH);
-	// 	digitalWrite(PIN_CS9, HIGH);	
-	// }
+	uint8_t mask = 0xFF & ~(1 << (displayIdx - 1));
+	Serial.print("setMask: ");
+	Serial.println(mask, BIN);
 }
-
 
 void SSD1357::setCSlow( void )
 {
-	// digitalWrite(_cs, LOW);
-
 	if(displayIdx == 9)
 	{
 		digitalWrite(PIN_CS9, LOW);
 	}	
 	else
 	{
-		uint8_t mask = 0xFF & ~(1 << (displayIdx - 1));
 		digitalWrite(PIN_LATCH, LOW);
-	    SPI.beginTransaction(SPISettings(5000000, MSBFIRST, SPI_MODE3));
-	    SPI.write(mask);
-        SPI.endTransaction();
+		_spi->beginTransaction(SPISettings(_spiFreq, SSD1357_SPI_DATA_ORDER, SSD1357_SPI_MODE));
+		_spi->transfer(&mask, 1);			
+		_spi->endTransaction();
 		digitalWrite(PIN_LATCH, HIGH);		
 	}
 }
 
 void SSD1357::setCShigh(void)
 {
-	// digitalWrite(_cs, HIGH);
-	// if(displayIdx == 9)
-	// {
-		digitalWrite(PIN_CS9, HIGH);
-	// }	
-	// else
-	// {
-		// uint8_t mask = 1 << (displayIdx - 1);
-		digitalWrite(PIN_LATCH, LOW);
-	    SPI.beginTransaction(SPISettings(5000000, MSBFIRST, SPI_MODE3));
-	    SPI.write(0xFF);
-        SPI.endTransaction();
-		digitalWrite(PIN_LATCH, HIGH);		
-	// }	
+	digitalWrite(PIN_CS9, HIGH);
+	digitalWrite(PIN_LATCH, LOW);
+	uint8_t temp_buff[] = {0xFF};
+	_spi->beginTransaction(SPISettings(_spiFreq, SSD1357_SPI_DATA_ORDER, SSD1357_SPI_MODE));
+	_spi->transfer(temp_buff, 1);			
+	_spi->endTransaction();
+	digitalWrite(PIN_LATCH, HIGH);
 }
 
 void SSD1357::startup( void )

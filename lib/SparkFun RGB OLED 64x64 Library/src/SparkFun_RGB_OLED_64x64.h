@@ -37,7 +37,7 @@ public:
 
 	RGB_OLED_64x64();
 
-	void begin(uint8_t dcPin, uint8_t rstPin, uint8_t csPin, SPIClass &spiInterface = SPI, uint32_t spiFreq = SSD1357_SPI_MAX_FREQ);
+	void begin(uint8_t dcPin, uint8_t rstPin, uint8_t idx, SPIClass &spiInterface = SPI, uint32_t spiFreq = SSD1357_SPI_MAX_FREQ);
 	void defaultConfigure( void );
 
 	// LCD Draw functions

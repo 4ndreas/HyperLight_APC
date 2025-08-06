@@ -197,12 +197,13 @@ protected:
 	void fast_filled_rectangle(int8_t x0, int8_t y0, int8_t x1, int8_t y1, int16_t value);
 
 	int displayIdx = 0;
+	uint8_t mask = 0xFF;
 
 public:
 
 	SSD1357( void );		// Constructor
 
-	virtual void begin(uint8_t dcPin, uint8_t rstPin, uint8_t csPin, SPIClass &spiInterface = SPI, uint32_t spiFreq = SSD1357_SPI_MAX_FREQ);
+	virtual void begin(uint8_t dcPin, uint8_t rstPin, uint8_t idx, SPIClass &spiInterface = SPI, uint32_t spiFreq = SSD1357_SPI_MAX_FREQ);
 	void startup( void );
 
 	void setDisplay(int idx);
