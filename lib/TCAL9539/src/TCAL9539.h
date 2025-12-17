@@ -13,7 +13,7 @@ public:
 
     bool begin();
 
-    void pinMode(uint8_t pin, int mode);
+    void pinMode(uint8_t pin, uint8_t mode);
     void digitalWrite(uint8_t pin, bool value);
     bool digitalRead(uint8_t pin);
 

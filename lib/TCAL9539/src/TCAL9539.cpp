@@ -33,7 +33,7 @@ bool TCAL9539::begin() {
     return true;
 }
 
-void TCAL9539::pinMode(uint8_t pin, int mode) {
+void TCAL9539::pinMode(uint8_t pin, uint8_t mode) {
     uint8_t port = portFromPin(pin);
     uint8_t bit = bitFromPin(pin);
 

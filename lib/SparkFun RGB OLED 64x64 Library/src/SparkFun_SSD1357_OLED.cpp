@@ -215,10 +215,6 @@ SSD1357::SSD1357( void )
 // void SSD1357::begin(uint8_t dcPin, uint8_t rstPin, uint8_t idx, SPIClass &spiInterface, uint32_t spiFreq)
 void SSD1357::begin(uint8_t idx, SPIClass &spiInterface, uint32_t spiFreq)
 {
-	// Associate 
-	// _dc = dcPin;
-	// _rst = rstPin;
-	// _cs = csPin;
 	setDisplay(idx);
 
 	_spi = &spiInterface;
@@ -229,20 +225,10 @@ void SSD1357::begin(uint8_t idx, SPIClass &spiInterface, uint32_t spiFreq)
 
 	linkDefaultFont();
 
-	// Set pinmodes
-	// pinMode(_cs, OUTPUT);
-	// pinMode(_rst, OUTPUT);
-	// pinMode(_dc, OUTPUT);
-
-	// // Set pins to default positions
-	// digitalWrite(_cs, HIGH);
-	// digitalWrite(_rst, HIGH);
-	// digitalWrite(_dc, HIGH);
 	setCShigh();
 	set_dc(HIGH);
 
 	// Power up the device
-
 	
 	/* 
 	Okay, lesson time.
@@ -273,14 +259,6 @@ void SSD1357::begin(uint8_t idx, SPIClass &spiInterface, uint32_t spiFreq)
 	in the future.
 
 	*/
-
-	// try starting SPI with a simple byte transmisssion to 'set' the SPI peripherals
-	// uint8_t temp_buff[1];
-	// _spi->beginTransaction(SPISettings(_spiFreq, SSD1357_SPI_DATA_ORDER, SSD1357_SPI_MODE));
-	// _spi->transfer(temp_buff, 1);
-	// _spi->endTransaction();
-
-	// startup();	// It really bothers me that I have to call startup twice... I've trid adding more of a delay - oh! Maybe there is a SPI problem. Bingo. See note above
 }
 
 void SSD1357::onSetHigh(Callback cb) { _sethigh = cb; }
@@ -323,18 +301,11 @@ void SSD1357::set_reset(int state)
 void SSD1357::startup( void )
 {
 	// Assume that VDD and VCC are stable when this function is called
-
 	delay(20);
-
-	// digitalWrite(_rst, LOW);
 	set_reset(LOW);
-	// delayMicroseconds(10);
-	delay(5);
-	// digitalWrite(_rst, HIGH);
+	delay(1);
 	set_reset(HIGH);
-
 	delay(200);
-
 	// Now you can do initialization
 }
 
@@ -356,9 +327,8 @@ void SSD1357::write_ram(uint8_t * pdata, uint8_t startrow, uint8_t startcol, uin
 
 void SSD1357::write_bytes(uint8_t * pdata, bool DATAcmd, uint16_t size)
 {
-	// digitalWrite(_cs, LOW);				// Set the chip select line
-	// digitalWrite(_dc, DATAcmd);		// Set whether transmitting data or command
-	set_dc(DATAcmd);
+	setCSlow();								// Set the chip select line
+	set_dc(DATAcmd);						// Set whether transmitting data or command
 	delayMicroseconds(5);
 
 	// Now transmit the data
@@ -367,8 +337,7 @@ void SSD1357::write_bytes(uint8_t * pdata, bool DATAcmd, uint16_t size)
 	_spi->transfer(pdata, size);			
 	_spi->endTransaction();
 
-	setCShigh();
-	// digitalWrite(_cs, HIGH);			// Stop talking to the driver
+	setCShigh();								// Stop talking to the driver
 }
 
 

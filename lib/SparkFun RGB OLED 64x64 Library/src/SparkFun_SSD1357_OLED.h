@@ -161,7 +161,6 @@ typedef enum{
 
 class SSD1357 : public Print {
 protected:
-	uint8_t _dc, _rst, _cs;		// Pin definitions
 	SPIClass * _spi;			// Which SPI port to use (bit-banging is not supported yet... you could add it!)
 	uint32_t _spiFreq;			// How fast to send data to the display
 	uint8_t _width, _height;	// Physical dimensions of the display that the driver is connected to. Limited to 128x128
@@ -218,10 +217,11 @@ public:
 	void onSetLow(Callback cb);             // Registrierung
 
 	void set_dc(int DATAcmd);
-	void set_reset(int state);
-
-	void onSetRst(Callback cb);
 	void onSetDC(Callback cb);
+
+	void set_reset(int state);
+	void onSetRst(Callback cb);
+
 
 	void write_bytes(uint8_t * pdata, bool DATAcmd, uint16_t size);																// Send data to SSD1357 with the proper D/C level
 	void write_ram(uint8_t * pdata, uint8_t startrow, uint8_t startcol, uint8_t stoprow, uint8_t stopcol, uint16_t size);		// Raw data write to the GDDRAM 
@@ -312,7 +312,6 @@ private:
 	Callback _setlow = nullptr;
  	Callback _set_reset = nullptr;
 	Callback _set_dc = nullptr;	
-
 
 };
 

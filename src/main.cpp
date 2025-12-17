@@ -4,17 +4,15 @@
 #include <SD.h>
 #include "Wire.h"
 
-// #include "PCF8575.h"
-
-#include "TCAL9539.h"
+#include <TCAL9539.h>
 
 #include "config.h"
 #include "usbMidiHost.h"
 // #include "midi_interface.h"
 #include "SparkFun_RGB_OLED_64x64.h"
 
-// PCF8575 pcf8575(dispARD);
-TCAL9539 io(0x74);
+
+
 
 void MIDI_poll();
 
@@ -27,11 +25,12 @@ void onInit()
   Serial.println(buf); 
 }
 
-const int ioDC_PIN = 16;
-const int ioRST_PIN = 17;
+TCAL9539 io(0x74);
+
+const int ioDC_PIN = 14;
+const int ioRST_PIN = 15;
 
 // Instantiate SparkFun RGB OLED object
-// 8 Displays CS Pins are connected to a 74HC595 shift register the 9 display CS pins is connected directly to GPIO_NUM_12
 RGB_OLED_64x64 oled;
 RGB_OLED_64x64 oled1;
 RGB_OLED_64x64 oled2;
@@ -49,25 +48,15 @@ const uint8_t PIN_SDIN   = SD_MOSI;  // MOSI
 const uint8_t PIN_SCLK   = SD_SCK;  // SCK
 const uint8_t PIN_DC     = D_C_PIN;  // D/C#
 const uint8_t PIN_RESET  = RES_PIN;   // RES#
-// const uint8_t PIN_LATCH  = SR_EN_PIN;   // 74HC595 RCLK (EN)
-// const uint8_t PIN_CS9    = CS9_PIN;  // Direct CS for display 9
 
-// uint8_t dispIdx[] = {P0,P1,P2,P3,P4,P5,P6,P7,P10};
-// uint8_t dispIdx[] = {0,1,2,3,4,5,6,7,8};
 
 void setCSHigh(int idx)
 {
-  // Serial.print("h");
-  // Serial.println(idx);
-  // pcf8575.digitalWrite(idx, HIGH);
   io.digitalWrite(idx, HIGH);
 }
 
 void setCSLOW(int idx)
 {
-// Serial.print("l");
-// Serial.println(idx);  
-//  pcf8575.digitalWrite(idx, LOW);
  io.digitalWrite(idx, LOW);
 }
 
@@ -89,14 +78,6 @@ void setup()
 
   Serial.println();
 
-  // pinMode(PIN_CS9, OUTPUT);
-	pinMode(PIN_RESET, OUTPUT);
-	pinMode(PIN_DC, OUTPUT);
-
-	// Set pins to default positions
-	// digitalWrite(PIN_CS9, HIGH);
-	digitalWrite(PIN_RESET, HIGH);
-	digitalWrite(PIN_DC, HIGH);
 
   // set all the CS pins! 
   pinMode(SD_CS, OUTPUT);  
@@ -105,17 +86,10 @@ void setup()
   digitalWrite(SD_CS, HIGH);  
   digitalWrite(USB_CS, HIGH);  	
 
-  Wire.begin(displaySDA, displaySCL, 400000);
-
-	// pcf8575.begin();
-  // for (int i = 0; i < 15; i++)
-  // {
-  //   pcf8575.pinMode(i, OUTPUT);
-  //   pcf8575.digitalWrite(i, HIGH);
-  // }
+  Wire.begin(displaySDA, displaySCL, 1000000);
 
   io.begin();
-  for (int i = 0; i < 15; i++)
+  for (int i = 0; i < 16; i++)
   {
     io.pinMode(i, OUTPUT);
     io.digitalWrite(i, HIGH);
@@ -123,18 +97,18 @@ void setup()
 
   SPI.begin(SD_SCK, SD_MISO, SD_MOSI, -1);
 
-
-
   for ( int i = 0; i< 9; i++)
   {
     Serial.print("init Display");
     Serial.println(i);
-    displays[i]->begin(i, SPI, 1000000);
+    
     displays[i]->onSetHigh(setCSHigh);
     displays[i]->onSetLow(setCSLOW);
     displays[i]->onSetDC(setDC);
     displays[i]->onSetRst(setRST);
     displays[i]->setCShigh();
+
+    displays[i]->begin(i, SPI, 1000000);
   }
 
   oled.startup();     // reset all displays
@@ -155,62 +129,6 @@ void setup()
     displays[i]->setCShigh();
   }
 
-
-  // oled.defaultConfigure();
-  // oled.setCShigh();
-  // delay(1000);
-  // oled8.defaultConfigure();
-  // oled8.setCShigh();
-
-  // // this works fine
-  // // oled.defaultConfigure();
-  // oled.clearDisplay();
-  // oled.fillDisplay(0x00FF);
-  // // delay(1000);
-  // oled.setCursor(0,0);
-  // oled.println("Hello");
-  // oled.setCursor(20,20);
-  // oled.print(9);
-  // oled.setCShigh();
-
-  // delay(1000);
-
-  // // only noise on the screen 
-  // // oled8.defaultConfigure();
-  // oled8.clearDisplay();
-  // oled8.fillDisplay(0xFF00);
-  // oled8.setCursor(0,0);
-  // delay(1000);
-  // oled8.println("World");
-  // oled8.setCursor(20,20);
-  // oled8.println(8);
-  // oled8.setCShigh();
-  
-  // delay(1000);
-  // // this works
-  // oled.setCursor(0,40);
-  // oled.println("again");
-  // oled.setCShigh();
-
-  // delay(1000);
-  // // this not
-  // oled8.setCursor(0,40);
-  // oled8.println("goes around");
-  // oled8.setCShigh();
-
-  // for( int i = 1; i < 9; i++)
-  // {
-  //   oled.setDisplay(i);
-  //   oled.defaultConfigure();
-
-  //   oled.clearDisplay();            // Fills the screen with black
-  //   oled.setCursor(0,0);            // Sets the cursor relative to the display. (0,0) is the upper left corner and (63,63) is the lower right
-  //   oled.println("world!");   // Prints using the default font at the cursor location
-  //   oled.setCursor(20,20);
-  //   oled.println(i);
-
-  //   oled.setDisplay(-1);
-  // }
 
   Serial.println("Setup SD Card");
   // delay( 500 );
@@ -245,32 +163,15 @@ void loop()
     if ((currentTime - lastTime) > 5000)
     {
         lastTime = currentTime;
-        // oled.setCShigh();
-        // oled.setDisplay(ticker);
-        // oled.setCSlow();
-        // ticker++;
-        // if(ticker > 9)
-        // {
-        //   ticker = 0;
-        // }
+
 
         if (tick == 0){
-          // digitalWrite(PIN_LATCH, LOW);
-          // // shiftOut(PIN_SDIN, PIN_SCLK, MSBFIRST, 0xFF);
-	        // SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE3));
-	        // SPI.write(0xFF);
-          // SPI.endTransaction();
-          // digitalWrite(PIN_LATCH, HIGH);	
+
           tick = 1; 	
           Serial.println("Tick");
         }
         else{
-          // digitalWrite(PIN_LATCH, LOW);
-          // // shiftOut(PIN_SDIN, PIN_SCLK, MSBFIRST, 0xFF);
-	        // SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE3));
-	        // SPI.write(0x00);
-          // SPI.endTransaction();
-          // digitalWrite(PIN_LATCH, HIGH);	
+
           tick = 0;
           Serial.println("Tock");
         }	
