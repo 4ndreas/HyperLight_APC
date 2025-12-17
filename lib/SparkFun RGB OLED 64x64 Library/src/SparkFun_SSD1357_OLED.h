@@ -69,6 +69,7 @@ public:
 
 
 
+
 /*
 
 	SSD1357 OLED Driver
@@ -159,7 +160,6 @@ typedef enum{
 }SSD1357_CMD_TypeDef;
 
 class SSD1357 : public Print {
-private:
 protected:
 	uint8_t _dc, _rst, _cs;		// Pin definitions
 	SPIClass * _spi;			// Which SPI port to use (bit-banging is not supported yet... you could add it!)
@@ -203,12 +203,25 @@ public:
 
 	SSD1357( void );		// Constructor
 
-	virtual void begin(uint8_t dcPin, uint8_t rstPin, uint8_t idx, SPIClass &spiInterface = SPI, uint32_t spiFreq = SSD1357_SPI_MAX_FREQ);
+	// virtual void begin(uint8_t dcPin, uint8_t rstPin, uint8_t idx, SPIClass &spiInterface = SPI, uint32_t spiFreq = SSD1357_SPI_MAX_FREQ);
+	virtual void begin(uint8_t idx, SPIClass &spiInterface = SPI, uint32_t spiFreq = SSD1357_SPI_MAX_FREQ);
+
 	void startup( void );
+
+
+	using Callback = void (*)(int value);  // Signatur des Callbacks
 
 	void setDisplay(int idx);
 	void setCSlow( void );
 	void setCShigh(void);
+	void onSetHigh(Callback cb);             // Registrierung
+	void onSetLow(Callback cb);             // Registrierung
+
+	void set_dc(int DATAcmd);
+	void set_reset(int state);
+
+	void onSetRst(Callback cb);
+	void onSetDC(Callback cb);
 
 	void write_bytes(uint8_t * pdata, bool DATAcmd, uint16_t size);																// Send data to SSD1357 with the proper D/C level
 	void write_ram(uint8_t * pdata, uint8_t startrow, uint8_t startcol, uint8_t stoprow, uint8_t stopcol, uint16_t size);		// Raw data write to the GDDRAM 
@@ -293,6 +306,14 @@ public:
 	void circleRAM(uint8_t x, uint8_t y, uint8_t radius, uint16_t value);
 	void circleFillRAM(uint8_t x, uint8_t y, uint8_t radius);
 	void circleFillRAM(uint8_t x, uint8_t y, uint8_t radius, uint16_t value);
+
+private:
+ 	Callback _sethigh = nullptr;
+	Callback _setlow = nullptr;
+ 	Callback _set_reset = nullptr;
+	Callback _set_dc = nullptr;	
+
+
 };
 
 //Color utility functions

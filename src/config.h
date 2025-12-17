@@ -4,7 +4,10 @@
 /* this will force using const velocity for all notes, remove this to get dynamic velocity */
 #define MIDI_USE_CONST_VELOCITY
 
-
+// Input Only
+#define IN2_PIN     GPIO_NUM_35
+#define IN3_PIN     GPIO_NUM_36
+#define IN4_PIN     GPIO_NUM_39
 
 // SPI PINS
 #define SD_MOSI     GPIO_NUM_32
@@ -20,18 +23,16 @@
 #define USB_INT     GPIO_NUM_35    //IN2
 
 // Display CS
-#define CS9_PIN     GPIO_NUM_12
-#define SR_EN_PIN   GPIO_NUM_14
+// #define CS9_PIN     GPIO_NUM_12
+// #define SR_EN_PIN   GPIO_NUM_14
 
 // Display
 #define D_C_PIN     GPIO_NUM_17
-#define RES_PIN     GPIO_NUM_15
+#define RES_PIN     GPIO_NUM_12
 
-
-
-
-
-// #define MIDI_VIA_USB_ENABLED
+#define displaySDA  GPIO_NUM_14
+#define displaySCL  GPIO_NUM_15
+#define dispARD     0x20
 
 
 #endif /* CONFIG_H_ */

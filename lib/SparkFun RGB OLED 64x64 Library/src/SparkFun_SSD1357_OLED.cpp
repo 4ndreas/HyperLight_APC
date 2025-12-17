@@ -212,11 +212,12 @@ SSD1357::SSD1357( void )
 	
 }
 
-void SSD1357::begin(uint8_t dcPin, uint8_t rstPin, uint8_t idx, SPIClass &spiInterface, uint32_t spiFreq)
+// void SSD1357::begin(uint8_t dcPin, uint8_t rstPin, uint8_t idx, SPIClass &spiInterface, uint32_t spiFreq)
+void SSD1357::begin(uint8_t idx, SPIClass &spiInterface, uint32_t spiFreq)
 {
 	// Associate 
-	_dc = dcPin;
-	_rst = rstPin;
+	// _dc = dcPin;
+	// _rst = rstPin;
 	// _cs = csPin;
 	setDisplay(idx);
 
@@ -237,7 +238,8 @@ void SSD1357::begin(uint8_t dcPin, uint8_t rstPin, uint8_t idx, SPIClass &spiInt
 	// digitalWrite(_cs, HIGH);
 	// digitalWrite(_rst, HIGH);
 	// digitalWrite(_dc, HIGH);
-
+	setCShigh();
+	set_dc(HIGH);
 
 	// Power up the device
 
@@ -281,39 +283,41 @@ void SSD1357::begin(uint8_t dcPin, uint8_t rstPin, uint8_t idx, SPIClass &spiInt
 	// startup();	// It really bothers me that I have to call startup twice... I've trid adding more of a delay - oh! Maybe there is a SPI problem. Bingo. See note above
 }
 
+void SSD1357::onSetHigh(Callback cb) { _sethigh = cb; }
+void SSD1357::onSetLow(Callback cb) { _setlow = cb; }
+void SSD1357::onSetRst(Callback cb){ _set_reset = cb; }
+void SSD1357::onSetDC(Callback cb){ _set_dc = cb; }
+
 void SSD1357::setDisplay(int idx)
 {
 	displayIdx = idx;
-	uint8_t mask = 0xFF & ~(1 << (displayIdx - 1));
-	Serial.print("setMask: ");
-	Serial.println(mask, BIN);
 }
 
 void SSD1357::setCSlow( void )
 {
-	if(displayIdx == 9)
-	{
-		digitalWrite(PIN_CS9, LOW);
-	}	
-	else
-	{
-		digitalWrite(PIN_LATCH, LOW);
-		_spi->beginTransaction(SPISettings(_spiFreq, SSD1357_SPI_DATA_ORDER, SPI_MODE3));
-		_spi->transfer(&mask, 1);			
-		_spi->endTransaction();
-		digitalWrite(PIN_LATCH, HIGH);		
-	}
+	if (_setlow) _setlow(displayIdx);  // Callback auslösen, Wert übergeben
 }
 
 void SSD1357::setCShigh(void)
 {
-	digitalWrite(PIN_CS9, HIGH);
-	digitalWrite(PIN_LATCH, LOW);
-	uint8_t temp_buff[] = {0xFF};
-	_spi->beginTransaction(SPISettings(_spiFreq, SSD1357_SPI_DATA_ORDER, SPI_MODE3));
-	_spi->transfer(temp_buff, 1);			
-	_spi->endTransaction();
-	digitalWrite(PIN_LATCH, HIGH);
+	if (_sethigh) {
+		_sethigh(displayIdx);
+	}
+}
+
+
+void SSD1357::set_dc(int DATAcmd)
+{
+	if (_set_dc) {
+		_set_dc(DATAcmd);
+	}
+}
+
+void SSD1357::set_reset(int state)
+{
+	if (_set_reset) {
+		_set_reset(state);
+	}
 }
 
 void SSD1357::startup( void )
@@ -322,10 +326,12 @@ void SSD1357::startup( void )
 
 	delay(20);
 
-	digitalWrite(_rst, LOW);
+	// digitalWrite(_rst, LOW);
+	set_reset(LOW);
 	// delayMicroseconds(10);
 	delay(5);
-	digitalWrite(_rst, HIGH);
+	// digitalWrite(_rst, HIGH);
+	set_reset(HIGH);
 
 	delay(200);
 
@@ -351,7 +357,8 @@ void SSD1357::write_ram(uint8_t * pdata, uint8_t startrow, uint8_t startcol, uin
 void SSD1357::write_bytes(uint8_t * pdata, bool DATAcmd, uint16_t size)
 {
 	// digitalWrite(_cs, LOW);				// Set the chip select line
-	digitalWrite(_dc, DATAcmd);		// Set whether transmitting data or command
+	// digitalWrite(_dc, DATAcmd);		// Set whether transmitting data or command
+	set_dc(DATAcmd);
 	delayMicroseconds(5);
 
 	// Now transmit the data
@@ -360,6 +367,7 @@ void SSD1357::write_bytes(uint8_t * pdata, bool DATAcmd, uint16_t size)
 	_spi->transfer(pdata, size);			
 	_spi->endTransaction();
 
+	setCShigh();
 	// digitalWrite(_cs, HIGH);			// Stop talking to the driver
 }
 
