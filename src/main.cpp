@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <ETH.h>
-#include "SPI.h"
+#include <SPI.h>
 #include <SD.h>
 #include "Wire.h"
 
@@ -8,7 +8,7 @@
 
 #include "config.h"
 #include "usbMidiHost.h"
-// #include "midi_interface.h"
+#include "midi_interface.h"
 #include "SparkFun_RGB_OLED_64x64.h"
 
 
@@ -49,6 +49,8 @@ const uint8_t PIN_SCLK   = SD_SCK;  // SCK
 const uint8_t PIN_DC     = D_C_PIN;  // D/C#
 const uint8_t PIN_RESET  = RES_PIN;   // RES#
 
+SPIClass firstSPI(HSPI);
+SPIClass secondSPI(VSPI);
 
 void setCSHigh(int idx) { io.digitalWrite(idx, HIGH); }
 void setCSLOW(int idx) { io.digitalWrite(idx, LOW); }
@@ -78,8 +80,11 @@ void setup()
     io.digitalWrite(i, HIGH);
   }
 
-  SPI.begin(SD_SCK, SD_MISO, SD_MOSI, -1);
+  secondSPI.begin(CS9_PIN, -1, D_C_PIN, -1);
 
+
+
+  
   for ( int i = 0; i< 9; i++)
   {
     Serial.print("init Display");
@@ -91,8 +96,13 @@ void setup()
     displays[i]->onSetRst(setRST);
     displays[i]->setCShigh();
 
-    displays[i]->begin(i, SPI, 10000000);
+    // displays[i]->begin(i, SPI, 10000000);
+    displays[i]->begin(i, secondSPI, 26000000);
+    
   }
+
+
+  
 
   oled.startup();     // reset all displays
 
@@ -112,9 +122,11 @@ void setup()
     displays[i]->setCShigh();
   }
 
+  SPI = firstSPI;
+  SPI.begin(SD_SCK, SD_MISO, SD_MOSI, -1);
 
-  Serial.println("Setup SD Card");
-  // delay( 500 );
+  // Serial.println("Setup SD Card");
+  // // delay( 500 );
   // if (!SD.begin(SD_CS)) Serial.println("SD begin failed");
   // while(!SD.begin()){
   //   Serial.println("SD begin failed");
@@ -124,13 +136,14 @@ void setup()
   // // delay( 500 );
 
 
+  UsbMidi_Setup();
 
-  // UsbMidi_Setup();
+  // Register onInit() function
+  Midi.attachOnInit(onInit);  
 
-  // // Register onInit() function
-  // Midi.attachOnInit(onInit);  
+  Serial.println("Setup end");
 
-  // Serial.println("Setup end");
+
 }
 
 
@@ -161,12 +174,12 @@ void loop()
       
     }
 
-    // UsbMidi_Loop();
+    UsbMidi_Loop();
 
     // Usb.Task();
-    // if ( Midi ) {
-    //   MIDI_poll();
-    // }
+    if ( Midi ) {
+      MIDI_poll();
+    }
     // delay(1);
 }
 

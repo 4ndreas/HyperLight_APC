@@ -23,7 +23,7 @@
 #define USB_INT     GPIO_NUM_35    //IN2
 
 // Display CS
-// #define CS9_PIN     GPIO_NUM_12
+#define CS9_PIN     GPIO_NUM_12
 // #define SR_EN_PIN   GPIO_NUM_14
 
 // Display

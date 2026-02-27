@@ -99,7 +99,7 @@ extern struct usbMidiMapping_s usbMidiMapping; /* definition in z_config.ino */
 void UsbMidi_Setup()
 {
     vid = pid = 0;
-    Serial.begin(115200);
+    // Serial.begin(115200);
     Serial.println("Hello now we can start\r\n");
 
     if (Usb.Init() == -1)
@@ -182,10 +182,10 @@ void UsbMidi_Loop()
 
         }
     }
-    if (Midi)
-    {
-        UsbMidi_Poll();
-    }
+    // if (Midi)
+    // {
+    //     UsbMidi_Poll();
+    // }
 }
 
 uint8_t msgQueue[128][3];

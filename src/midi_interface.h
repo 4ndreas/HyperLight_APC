@@ -338,17 +338,17 @@ void Midi_SendRaw(uint8_t *msg)
     }
 }
 
-struct adc_to_midi_s adcToMidiLookUp[ADC_TO_MIDI_LOOKUP_SIZE] =
-{
-    {0, 0x10},
-    {1, 0x10},
-    {2, 0x10},
-    {3, 0x10},
-    {4, 0x10},
-    {5, 0x10},
-    {6, 0x10},
-    {7, 0x10},
-};
+// struct adc_to_midi_s adcToMidiLookUp[ADC_TO_MIDI_LOOKUP_SIZE] =
+// {
+//     {0, 0x10},
+//     {1, 0x10},
+//     {2, 0x10},
+//     {3, 0x10},
+//     {4, 0x10},
+//     {5, 0x10},
+//     {6, 0x10},
+//     {7, 0x10},
+// };
 
 // struct adc_to_midi_mapping_s adcToMidiMapping =
 // {
