@@ -6,6 +6,7 @@
 #include <WebServer.h>
 
 #include "config.h"
+#include "display0Mode.h"
 #include "networkMidiBridge.h"
 
 namespace {
@@ -157,7 +158,7 @@ bool renderBmpToDisplay(int idx, const String& path) {
   return true;
 }
 
-int parseDisplayArg(int minDisplay = 1) {
+int parseDisplayArg(int minDisplay = 0) {
   if (!g_server.hasArg("display")) {
     return -1;
   }
@@ -213,12 +214,20 @@ void handleRoot() {
   html += "DNS2 <input name='dns2' value='" + cfg.dns2.toString() + "'><br>";
   html += "<button type='submit'>Save Network Config</button></form>";
 
+  html += "<h3>Display 0 Mode</h3>";
+  html += "<form method='POST' action='/display0mode'>";
+  html += "<select name='mode'>";
+  html += String("<option value='status'") + (Display0Mode_IsStatusEnabled() ? " selected" : "") + ">Status (IP)</option>";
+  html += String("<option value='image'") + (!Display0Mode_IsStatusEnabled() ? " selected" : "") + ">Image</option>";
+  html += "</select> ";
+  html += "<button type='submit'>Apply</button></form>";
+
   html += "<h3>Upload Image</h3>";
-  html += "<p>Display 0 is reserved for IP/status. Upload targets 1.." + String((int)g_displayCount - 1) + ".</p>";
+  html += "<p>Display 0 can be used for image mode. Status mode overrides display 0 image rendering.</p>";
   html += "<p>Image format: BMP, uncompressed, 24-bit, exactly 64x64.</p>";
-  html += "<form id='upf' method='POST' action='/upload?display=1' enctype='multipart/form-data'>";
+  html += "<form id='upf' method='POST' action='/upload?display=0' enctype='multipart/form-data'>";
   html += "<label>Display:</label><select name='display'>";
-  for (size_t i = 1; i < g_displayCount; i++) {
+  for (size_t i = 0; i < g_displayCount; i++) {
     html += "<option value='" + String(i) + "'>" + String(i) + "</option>";
   }
   html += "</select><br>";
@@ -228,7 +237,7 @@ void handleRoot() {
   html += "f.addEventListener('submit',()=>{f.action='/upload?display='+encodeURIComponent(s.value);});</script>";
 
   html += "<h3>Gallery</h3><div class='grid'>";
-  for (size_t i = 1; i < g_displayCount; i++) {
+  for (size_t i = 0; i < g_displayCount; i++) {
     String p = filePathForDisplay(static_cast<int>(i));
     html += "<div class='card'><div>Display " + String(i) + "</div>";
     if (g_storage != nullptr && g_storage->exists(p)) {
@@ -245,7 +254,7 @@ void handleRoot() {
 }
 
 void handleImage() {
-  int idx = parseDisplayArg(1);
+  int idx = parseDisplayArg(0);
   if (idx < 0) {
     g_server.send(400, "text/plain", "Invalid display index");
     return;
@@ -268,7 +277,7 @@ void handleImage() {
 }
 
 void handleShow() {
-  int idx = parseDisplayArg(1);
+  int idx = parseDisplayArg(0);
   if (idx < 0) {
     g_server.send(400, "text/plain", "Invalid display index");
     return;
@@ -325,8 +334,24 @@ void handleNetCfg() {
   g_server.send(200, "text/html", "<html><body>Saved. Rebooting...<meta http-equiv='refresh' content='4;url=/'></body></html>");
 }
 
+void handleDisplay0Mode() {
+  if (!g_server.hasArg("mode")) {
+    g_server.send(400, "text/plain", "Missing mode");
+    return;
+  }
+
+  bool statusMode = (g_server.arg("mode") == "status");
+  Display0Mode_SetStatusEnabled(statusMode);
+  if (!statusMode) {
+    renderBmpToDisplay(0, filePathForDisplay(0));
+  }
+
+  g_server.sendHeader("Location", "/", true);
+  g_server.send(303, "text/plain", "");
+}
+
 void handleUploadFinalize() {
-  if (g_uploadDisplay < 1) {
+  if (g_uploadDisplay < 0) {
     g_server.send(400, "text/plain", "Upload failed: missing/invalid display index");
     return;
   }
@@ -337,7 +362,8 @@ void handleUploadFinalize() {
     return;
   }
 
-  if (!renderBmpToDisplay(g_uploadDisplay, path)) {
+  bool shouldRenderNow = !(g_uploadDisplay == 0 && Display0Mode_IsStatusEnabled());
+  if (shouldRenderNow && !renderBmpToDisplay(g_uploadDisplay, path)) {
     g_storage->remove(path);
     g_server.send(415, "text/plain", "Only uncompressed 24-bit BMP in 64x64 is supported");
     return;
@@ -352,8 +378,8 @@ void handleUploadData() {
   HTTPUpload& upload = g_server.upload();
 
   if (upload.status == UPLOAD_FILE_START) {
-    g_uploadDisplay = parseDisplayArg(1);
-    if (g_uploadDisplay < 1 || g_storage == nullptr) {
+    g_uploadDisplay = parseDisplayArg(0);
+    if (g_uploadDisplay < 0 || g_storage == nullptr) {
       return;
     }
 
@@ -367,7 +393,7 @@ void handleUploadData() {
       return;
     }
   } else if (upload.status == UPLOAD_FILE_WRITE) {
-    if (g_uploadDisplay < 1 || !g_uploadFile) {
+    if (g_uploadDisplay < 0 || !g_uploadFile) {
       return;
     }
 
@@ -407,11 +433,18 @@ void WebDisplayServer_Setup(RGB_OLED_64x64** displays, size_t count) {
       renderBmpToDisplay(static_cast<int>(i), path);
     }
   }
+  if (!Display0Mode_IsStatusEnabled()) {
+    String p0 = filePathForDisplay(0);
+    if (g_storage->exists(p0)) {
+      renderBmpToDisplay(0, p0);
+    }
+  }
 
   g_server.on("/", HTTP_GET, handleRoot);
   g_server.on("/show", HTTP_GET, handleShow);
   g_server.on("/image", HTTP_GET, handleImage);
   g_server.on("/netcfg", HTTP_POST, handleNetCfg);
+  g_server.on("/display0mode", HTTP_POST, handleDisplay0Mode);
   g_server.on("/upload", HTTP_POST, handleUploadFinalize, handleUploadData);
   g_server.onNotFound([]() { g_server.send(404, "text/plain", "Not found"); });
 
@@ -425,4 +458,12 @@ void WebDisplayServer_Loop() {
   if (g_rebootAtMs != 0 && millis() >= g_rebootAtMs) {
     ESP.restart();
   }
+}
+
+bool WebDisplayServer_ShowStoredImageOnDisplay(int idx) {
+  String path = filePathForDisplay(idx);
+  if (g_storage == nullptr || !g_storage->exists(path)) {
+    return false;
+  }
+  return renderBmpToDisplay(idx, path);
 }

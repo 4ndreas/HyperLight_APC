@@ -11,6 +11,7 @@
 #include "midi_interface.h"
 #include "networkMidiBridge.h"
 #include "webDisplayServer.h"
+#include "display0Mode.h"
 #include "SparkFun_RGB_OLED_64x64.h"
 
 
@@ -173,6 +174,10 @@ int ticker = 0;
 
 void updateDisplay0Status()
 {
+  if (!Display0Mode_IsStatusEnabled()) {
+    return;
+  }
+
   static uint32_t lastUpdate = 0;
   uint32_t now = millis();
   if ((now - lastUpdate) < 1000) {
@@ -250,6 +255,11 @@ void MIDI_poll()
   do {
     size = Midi.RecvData(msg);
     if (size > 0) {
+      if (size == 3 && msg[0] == 0x80 && msg[1] == 0x52 && msg[2] == 0x7F) {
+        Display0Mode_SetStatusEnabled(false);
+        WebDisplayServer_ShowStoredImageOnDisplay(0);
+      }
+
       uint32_t time = (uint32_t)millis();
       sprintf(buf, "%04X%04X:%d:", (uint16_t)(time >> 16), (uint16_t)(time & 0xFFFF), size);
       Serial.print(buf);
