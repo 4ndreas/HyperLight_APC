@@ -283,7 +283,6 @@ void SSD1357::setCShigh(void)
 	}
 }
 
-
 void SSD1357::set_dc(int DATAcmd)
 {
 	if (_set_dc) {
@@ -317,19 +316,14 @@ void SSD1357::write_ram(uint8_t * pdata, uint8_t startrow, uint8_t startcol, uin
 
 	// Use write_bytes() to send the data along with a data flag
 	enableWriteRAM();				
-
-	setCSlow();
-
+	
 	write_bytes(pdata, true, size);
-
-	setCShigh();
 }
 
 void SSD1357::write_bytes(uint8_t * pdata, bool DATAcmd, uint16_t size)
 {
 	setCSlow();								// Set the chip select line
 	set_dc(DATAcmd);						// Set whether transmitting data or command
-	delayMicroseconds(5);
 
 	// Now transmit the data
 	_spi->beginTransaction(SPISettings(_spiFreq, SSD1357_SPI_DATA_ORDER, SSD1357_SPI_MODE));
@@ -456,24 +450,6 @@ bool SSD1357::fontCallback( uint8_t val )
 	// Don't use the default
 	return (*_userFontCallbackPtr)(_object2operateOn, val, _width, _height);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 void SSD1357::setColumnAddress(uint8_t start, uint8_t stop)

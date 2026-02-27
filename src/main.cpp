@@ -50,34 +50,17 @@ const uint8_t PIN_DC     = D_C_PIN;  // D/C#
 const uint8_t PIN_RESET  = RES_PIN;   // RES#
 
 
-void setCSHigh(int idx)
-{
-  io.digitalWrite(idx, HIGH);
-}
-
-void setCSLOW(int idx)
-{
- io.digitalWrite(idx, LOW);
-}
-
-void setRST(int val)
-{
- io.digitalWrite(ioRST_PIN, val);
-}
-
-void setDC(int val)
-{
- io.digitalWrite(ioDC_PIN, val);
-}
+void setCSHigh(int idx) { io.digitalWrite(idx, HIGH); }
+void setCSLOW(int idx) { io.digitalWrite(idx, LOW); }
+void setRST(int val) { io.digitalWrite(ioRST_PIN, val); }
+void setDC(int val) { io.digitalWrite(ioDC_PIN, val); }
 
 void setup()
 {
   delay(100);
 
   Serial.begin(115200);
-
   Serial.println();
-
 
   // set all the CS pins! 
   pinMode(SD_CS, OUTPUT);  
@@ -108,7 +91,7 @@ void setup()
     displays[i]->onSetRst(setRST);
     displays[i]->setCShigh();
 
-    displays[i]->begin(i, SPI, 1000000);
+    displays[i]->begin(i, SPI, 10000000);
   }
 
   oled.startup();     // reset all displays
@@ -119,7 +102,7 @@ void setup()
     displays[i]->setCShigh();
 
     displays[i]->clearDisplay();
-    displays[i]->fillDisplay(0x00FF);
+    displays[i]->fillDisplay(0x00FF );
 
     displays[i]->setCursor(0,0);
     displays[i]->println("Hello");
