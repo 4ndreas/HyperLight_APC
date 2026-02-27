@@ -42,4 +42,7 @@
 #define NETWORK_MIDI_MCAST_C 0
 #define NETWORK_MIDI_MCAST_D 37
 
+// OLED BMP render tuning
+#define OLED_BMP_SWAP_RB 1
+
 #endif /* CONFIG_H_ */

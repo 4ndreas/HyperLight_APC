@@ -1,6 +1,9 @@
 #include "networkMidiBridge.h"
 
 #include <ETH.h>
+#include <FS.h>
+#include <SD.h>
+#include <SPIFFS.h>
 #include <WiFiUdp.h>
 #include <usbh_midi.h>
 
@@ -18,6 +21,16 @@ IPAddress g_multicastIp(
 
 bool g_udpStarted = false;
 bool g_linkLogged = false;
+bool g_spiffsReady = false;
+NetworkIpConfig g_cfg = {
+    true,
+    IPAddress(0, 0, 0, 0),
+    IPAddress(0, 0, 0, 0),
+    IPAddress(0, 0, 0, 0),
+    IPAddress(0, 0, 0, 0),
+    IPAddress(0, 0, 0, 0)};
+
+constexpr const char* kCfgPath = "/net.cfg";
 
 class MidiStreamParser {
  public:
@@ -114,6 +127,94 @@ class MidiStreamParser {
 
 MidiStreamParser g_parser;
 
+fs::FS* getConfigFs() {
+  if (SD.cardType() != CARD_NONE) {
+    return &SD;
+  }
+
+  if (!g_spiffsReady) {
+    g_spiffsReady = SPIFFS.begin(true);
+  }
+
+  if (g_spiffsReady) {
+    return &SPIFFS;
+  }
+
+  return nullptr;
+}
+
+bool parseIp(const String& text, IPAddress& out) {
+  int a = -1, b = -1, c = -1, d = -1;
+  if (sscanf(text.c_str(), "%d.%d.%d.%d", &a, &b, &c, &d) != 4) {
+    return false;
+  }
+
+  if (a < 0 || a > 255 || b < 0 || b > 255 || c < 0 || c > 255 || d < 0 || d > 255) {
+    return false;
+  }
+
+  out = IPAddress(static_cast<uint8_t>(a), static_cast<uint8_t>(b), static_cast<uint8_t>(c), static_cast<uint8_t>(d));
+  return true;
+}
+
+void trimLine(String& s) {
+  s.trim();
+}
+
+void loadConfig() {
+  g_cfg = {
+      true,
+      IPAddress(0, 0, 0, 0),
+      IPAddress(0, 0, 0, 0),
+      IPAddress(255, 255, 255, 0),
+      IPAddress(0, 0, 0, 0),
+      IPAddress(0, 0, 0, 0)};
+
+  fs::FS* fs = getConfigFs();
+  if (fs == nullptr || !fs->exists(kCfgPath)) {
+    return;
+  }
+
+  File f = fs->open(kCfgPath, FILE_READ);
+  if (!f) {
+    return;
+  }
+
+  while (f.available()) {
+    String line = f.readStringUntil('\n');
+    trimLine(line);
+    if (line.length() == 0 || line.startsWith("#")) {
+      continue;
+    }
+
+    int sep = line.indexOf('=');
+    if (sep <= 0) {
+      continue;
+    }
+
+    String key = line.substring(0, sep);
+    String val = line.substring(sep + 1);
+    trimLine(key);
+    trimLine(val);
+
+    if (key == "mode") {
+      g_cfg.dhcp = (val != "static");
+    } else if (key == "ip") {
+      parseIp(val, g_cfg.ip);
+    } else if (key == "gateway") {
+      parseIp(val, g_cfg.gateway);
+    } else if (key == "subnet") {
+      parseIp(val, g_cfg.subnet);
+    } else if (key == "dns1") {
+      parseIp(val, g_cfg.dns1);
+    } else if (key == "dns2") {
+      parseIp(val, g_cfg.dns2);
+    }
+  }
+
+  f.close();
+}
+
 void startUdpIfPossible() {
   if (g_udpStarted || !ETH.linkUp()) {
     return;
@@ -134,13 +235,22 @@ void startUdpIfPossible() {
 
 void NetworkMidi_Setup() {
 #if NETWORK_MIDI_ENABLE
+  loadConfig();
+
   if (!ETH.begin()) {
     Serial.println("ETH begin failed");
     return;
   }
 
+  if (g_cfg.dhcp) {
+    ETH.config(IPAddress(0, 0, 0, 0), IPAddress(0, 0, 0, 0), IPAddress(0, 0, 0, 0), IPAddress(0, 0, 0, 0), IPAddress(0, 0, 0, 0));
+    Serial.println("ETH start requested (DHCP)");
+  } else {
+    ETH.config(g_cfg.ip, g_cfg.gateway, g_cfg.subnet, g_cfg.dns1, g_cfg.dns2);
+    Serial.printf("ETH start requested (STATIC %s)\r\n", g_cfg.ip.toString().c_str());
+  }
+
   g_parser.reset();
-  Serial.println("ETH start requested (DHCP)");
 #endif
 }
 
@@ -198,4 +308,39 @@ void NetworkMidi_SendFromUsb(const uint8_t* data, size_t len) {
   (void)data;
   (void)len;
 #endif
+}
+
+bool NetworkMidi_SaveConfig(const NetworkIpConfig& cfg) {
+  fs::FS* fs = getConfigFs();
+  if (fs == nullptr) {
+    return false;
+  }
+
+  File f = fs->open(kCfgPath, FILE_WRITE);
+  if (!f) {
+    return false;
+  }
+
+  f.printf("mode=%s\n", cfg.dhcp ? "dhcp" : "static");
+  f.printf("ip=%s\n", cfg.ip.toString().c_str());
+  f.printf("gateway=%s\n", cfg.gateway.toString().c_str());
+  f.printf("subnet=%s\n", cfg.subnet.toString().c_str());
+  f.printf("dns1=%s\n", cfg.dns1.toString().c_str());
+  f.printf("dns2=%s\n", cfg.dns2.toString().c_str());
+  f.close();
+
+  g_cfg = cfg;
+  return true;
+}
+
+NetworkIpConfig NetworkMidi_GetConfig() {
+  return g_cfg;
+}
+
+bool NetworkMidi_IsLinkUp() {
+  return ETH.linkUp();
+}
+
+IPAddress NetworkMidi_GetLocalIP() {
+  return ETH.localIP();
 }

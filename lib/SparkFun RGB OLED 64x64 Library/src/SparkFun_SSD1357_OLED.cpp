@@ -324,7 +324,7 @@ void SSD1357::write_bytes(uint8_t * pdata, bool DATAcmd, uint16_t size)
 {
 	setCSlow();								// Set the chip select line
 	set_dc(DATAcmd);						// Set whether transmitting data or command
-
+	delayMicroseconds(5);
 	// Now transmit the data
 	_spi->beginTransaction(SPISettings(_spiFreq, SSD1357_SPI_DATA_ORDER, SSD1357_SPI_MODE));
 	// _spi->transferOut(pdata, size);			// FYI this function would solve a lot of problems but it is not part of Arduino yet. All it does is send out a buffer without modifying the contents. If you need extra performance then try to implement something similar

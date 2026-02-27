@@ -10,6 +10,7 @@
 #include "usbMidiHost.h"
 #include "midi_interface.h"
 #include "networkMidiBridge.h"
+#include "webDisplayServer.h"
 #include "SparkFun_RGB_OLED_64x64.h"
 
 
@@ -58,6 +59,70 @@ void setCSLOW(int idx) { io.digitalWrite(idx, LOW); }
 void setRST(int val) { io.digitalWrite(ioRST_PIN, val); }
 void setDC(int val) { io.digitalWrite(ioDC_PIN, val); }
 
+void initDisplays()
+{
+  // Cold boot is sensitive here: keep I2C conservative for the IO expander.
+  Wire.begin(displaySDA, displaySCL, 400000);
+  delay(10);
+
+  io.begin();
+  delay(10);
+
+  for (int i = 0; i < 16; i++)
+  {
+    io.pinMode(i, OUTPUT);
+    io.digitalWrite(i, HIGH);
+  }
+
+  secondSPI.begin(CS9_PIN, -1, D_C_PIN, -1);
+
+  for (int i = 0; i < 9; i++)
+  {
+    Serial.print("init Display");
+    Serial.println(i);
+
+    displays[i]->onSetHigh(setCSHigh);
+    displays[i]->onSetLow(setCSLOW);
+    displays[i]->onSetDC(setDC);
+    displays[i]->onSetRst(setRST);
+    displays[i]->setCShigh();
+    displays[i]->begin(i, secondSPI, 10000000);
+  }
+
+  // Shared hardware reset for all OLEDs.
+  setRST(LOW);
+  delay(20);
+  setRST(HIGH);
+  delay(200);
+
+  // First pass configure.
+  for (int i = 0; i < 9; i++)
+  {
+    displays[i]->defaultConfigure();
+    displays[i]->clearDisplay();
+    displays[i]->setCShigh();
+  }
+
+  // Second pass helps with occasional power-on garbage on some panels.
+  for (int i = 0; i < 9; i++)
+  {
+    displays[i]->defaultConfigure();
+    displays[i]->clearDisplay();
+    displays[i]->setCShigh();
+  }
+
+  for (int i = 0; i < 9; i++)
+  {
+    displays[i]->fillDisplay(0x00FF);
+    displays[i]->setCursor(0, 0);
+    displays[i]->println("Hello");
+    displays[i]->setCursor(20, 20);
+    displays[i]->print("idx: ");
+    displays[i]->print(i);
+    displays[i]->setCShigh();
+  }
+}
+
 void setup()
 {
   delay(100);
@@ -72,65 +137,20 @@ void setup()
   digitalWrite(SD_CS, HIGH);  
   digitalWrite(USB_CS, HIGH);  	
 
-  Wire.begin(displaySDA, displaySCL, 1000000);
-
-  io.begin();
-  for (int i = 0; i < 16; i++)
-  {
-    io.pinMode(i, OUTPUT);
-    io.digitalWrite(i, HIGH);
-  }
-
-  secondSPI.begin(CS9_PIN, -1, D_C_PIN, -1);
-
- 
-  for ( int i = 0; i< 9; i++)
-  {
-    Serial.print("init Display");
-    Serial.println(i);
-    
-    displays[i]->onSetHigh(setCSHigh);
-    displays[i]->onSetLow(setCSLOW);
-    displays[i]->onSetDC(setDC);
-    displays[i]->onSetRst(setRST);
-    displays[i]->setCShigh();
-
-    displays[i]->begin(i, secondSPI, 10000000);
-  }
-
-
-  
-
-  oled.startup();     // reset all displays
-
-  for ( int i = 0; i< 9; i++)
-  {
-    displays[i]->defaultConfigure();
-    displays[i]->setCShigh();
-
-    displays[i]->clearDisplay();
-    displays[i]->fillDisplay(0x00FF );
-
-    displays[i]->setCursor(0,0);
-    displays[i]->println("Hello");
-    displays[i]->setCursor(20,20);
-    displays[i]->print("idx: ");
-    displays[i]->print(i);
-    displays[i]->setCShigh();
-  }
+  initDisplays();
 
   SPI = firstSPI;
   SPI.begin(SD_SCK, SD_MISO, SD_MOSI, -1);
 
-  // Serial.println("Setup SD Card");
-  // // delay( 500 );
-  // if (!SD.begin(SD_CS)) Serial.println("SD begin failed");
-  // while(!SD.begin()){
-  //   Serial.println("SD begin failed");
-  //   // delay(500);
-  // }
-  // Serial.printf("SD Card Size: %d, sectors %d, totalBytes: %d, usedBytes: %d \r\n", SD.cardSize(),SD.numSectors(), SD.totalBytes(), SD.usedBytes());
-  // // delay( 500 );
+  Serial.println("Setup SD Card");
+  // delay( 500 );
+  if (!SD.begin(SD_CS)) Serial.println("SD begin failed");
+  while(!SD.begin()){
+    Serial.println("SD begin failed");
+    // delay(500);
+  }
+  Serial.printf("SD Card Size: %d, sectors %d, totalBytes: %d, usedBytes: %d \r\n", SD.cardSize(),SD.numSectors(), SD.totalBytes(), SD.usedBytes());
+  // delay( 500 );
 
 
   UsbMidi_Setup();
@@ -141,6 +161,7 @@ void setup()
   Serial.println("Setup end");
 
   NetworkMidi_Setup();
+  WebDisplayServer_Setup(displays, sizeof(displays) / sizeof(displays[0]));
 
 }
 
@@ -149,6 +170,39 @@ long currentTime = 0;
 long lastTime = 0;
 int tick = 0;
 int ticker = 0;
+
+void updateDisplay0Status()
+{
+  static uint32_t lastUpdate = 0;
+  uint32_t now = millis();
+  if ((now - lastUpdate) < 1000) {
+    return;
+  }
+  lastUpdate = now;
+
+  RGB_OLED_64x64* d = displays[0];
+  d->clearDisplay();
+  d->setCursor(0, 0);
+  d->println("NET STATUS");
+
+  d->setCursor(0, 10);
+  d->print("LINK:");
+  d->println(NetworkMidi_IsLinkUp() ? "UP" : "DOWN");
+
+  NetworkIpConfig cfg = NetworkMidi_GetConfig();
+  d->setCursor(0, 20);
+  d->print("MODE:");
+  d->println(cfg.dhcp ? "DHCP" : "STATIC");
+
+  d->setCursor(0, 30);
+  d->print("IP:");
+  d->println(NetworkMidi_GetLocalIP().toString());
+
+  d->setCursor(0, 50);
+  d->print("USB:");
+  d->println(Midi ? "OK" : "WAIT");
+  d->setCShigh();
+}
 
 void loop()
 {
@@ -174,6 +228,8 @@ void loop()
 
     UsbMidi_Loop();
     NetworkMidi_Loop();
+    WebDisplayServer_Loop();
+    updateDisplay0Status();
 
     // Usb.Task();
     if ( Midi ) {
