@@ -9,6 +9,7 @@
 #include "config.h"
 #include "usbMidiHost.h"
 #include "midi_interface.h"
+#include "networkMidiBridge.h"
 #include "SparkFun_RGB_OLED_64x64.h"
 
 
@@ -82,9 +83,7 @@ void setup()
 
   secondSPI.begin(CS9_PIN, -1, D_C_PIN, -1);
 
-
-
-  
+ 
   for ( int i = 0; i< 9; i++)
   {
     Serial.print("init Display");
@@ -96,9 +95,7 @@ void setup()
     displays[i]->onSetRst(setRST);
     displays[i]->setCShigh();
 
-    // displays[i]->begin(i, SPI, 10000000);
-    displays[i]->begin(i, secondSPI, 26000000);
-    
+    displays[i]->begin(i, secondSPI, 10000000);
   }
 
 
@@ -143,6 +140,7 @@ void setup()
 
   Serial.println("Setup end");
 
+  NetworkMidi_Setup();
 
 }
 
@@ -175,6 +173,7 @@ void loop()
     }
 
     UsbMidi_Loop();
+    NetworkMidi_Loop();
 
     // Usb.Task();
     if ( Midi ) {
@@ -189,20 +188,25 @@ void loop()
 void MIDI_poll()
 {
   char buf[16];
-  uint8_t bufMidi[MIDI_EVENT_PACKET_SIZE];
-  uint16_t  rcvd;
+  uint8_t msg[3];
+  uint8_t size = 0;
 
-  if (Midi.RecvData( &rcvd,  bufMidi) == 0 ) {
-    uint32_t time = (uint32_t)millis();
-    sprintf(buf, "%04X%04X:%3d:", (uint16_t)(time >> 16), (uint16_t)(time & 0xFFFF), rcvd); // Split variable to prevent warnings on the ESP8266 platform
-    Serial.print(buf);
-
-    for (int i = 0; i < MIDI_EVENT_PACKET_SIZE; i++) {
-      sprintf(buf, " %02X", bufMidi[i]);
+  do {
+    size = Midi.RecvData(msg);
+    if (size > 0) {
+      uint32_t time = (uint32_t)millis();
+      sprintf(buf, "%04X%04X:%d:", (uint16_t)(time >> 16), (uint16_t)(time & 0xFFFF), size);
       Serial.print(buf);
+
+      for (int i = 0; i < size; i++) {
+        sprintf(buf, " %02X", msg[i]);
+        Serial.print(buf);
+      }
+      Serial.println("");
+      NetworkMidi_SendFromUsb(msg, size);
     }
-    Serial.println("");
   }
+  while (size > 0);
 }
 
 

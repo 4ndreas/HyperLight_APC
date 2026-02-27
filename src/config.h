@@ -34,5 +34,12 @@
 #define displaySCL  GPIO_NUM_15
 #define dispARD     0x20
 
+// Network MIDI (ipMIDI-compatible multicast)
+#define NETWORK_MIDI_ENABLE 1
+#define NETWORK_MIDI_PORT 21928
+#define NETWORK_MIDI_MCAST_A 225
+#define NETWORK_MIDI_MCAST_B 0
+#define NETWORK_MIDI_MCAST_C 0
+#define NETWORK_MIDI_MCAST_D 37
 
 #endif /* CONFIG_H_ */
