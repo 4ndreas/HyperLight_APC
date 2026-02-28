@@ -2,6 +2,9 @@
 #include <ETH.h>
 #include <SPI.h>
 #include <SD.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
+#include <freertos/task.h>
 #include "Wire.h"
 
 #include <TCAL9539.h>
@@ -18,6 +21,8 @@
 
 
 void MIDI_poll();
+bool enqueueNetToUsbShort(uint8_t status, uint8_t data1, uint8_t data2);
+bool enqueueNetToUsbSysEx(const uint8_t* data, uint16_t len);
 
 void onInit()
 {
@@ -124,6 +129,87 @@ void initDisplays()
   }
 }
 
+struct UsbToNetMsg {
+  uint8_t len;
+  uint8_t data[3];
+};
+
+struct NetToUsbMsg {
+  uint8_t type; // 0 = short, 1 = sysex
+  uint16_t len;
+  uint8_t data[512];
+};
+
+QueueHandle_t g_usbToNetQueue = nullptr;
+QueueHandle_t g_netToUsbQueue = nullptr;
+TaskHandle_t g_usbTaskHandle = nullptr;
+
+bool enqueueUsbToNet(const uint8_t* data, uint8_t len)
+{
+  if (g_usbToNetQueue == nullptr || data == nullptr || len == 0 || len > 3) {
+    return false;
+  }
+
+  UsbToNetMsg m = {};
+  m.len = len;
+  memcpy(m.data, data, len);
+  return xQueueSend(g_usbToNetQueue, &m, 0) == pdTRUE;
+}
+
+bool enqueueNetToUsbShort(uint8_t status, uint8_t data1, uint8_t data2)
+{
+  if (g_netToUsbQueue == nullptr) {
+    return false;
+  }
+
+  NetToUsbMsg m = {};
+  m.type = 0;
+  m.len = 3;
+  m.data[0] = status;
+  m.data[1] = data1;
+  m.data[2] = data2;
+  return xQueueSend(g_netToUsbQueue, &m, 0) == pdTRUE;
+}
+
+bool enqueueNetToUsbSysEx(const uint8_t* data, uint16_t len)
+{
+  if (g_netToUsbQueue == nullptr || data == nullptr || len < 2 || len > sizeof(NetToUsbMsg::data)) {
+    return false;
+  }
+
+  NetToUsbMsg m = {};
+  m.type = 1;
+  m.len = len;
+  memcpy(m.data, data, len);
+  return xQueueSend(g_netToUsbQueue, &m, 0) == pdTRUE;
+}
+
+void UsbWorkerTask(void* /*pv*/)
+{
+  while (true) {
+    UsbMidi_Loop();
+
+    if (Midi) {
+      MIDI_poll();
+    }
+
+    if (Midi && g_netToUsbQueue != nullptr) {
+      NetToUsbMsg in = {};
+      int processed = 0;
+      while (processed < 32 && xQueueReceive(g_netToUsbQueue, &in, 0) == pdTRUE) {
+        if (in.type == 0 && in.len >= 3) {
+          Midi.SendData(in.data, 0);
+        } else if (in.type == 1 && in.len >= 2) {
+          Midi.SendSysEx(in.data, in.len, 0);
+        }
+        processed++;
+      }
+    }
+
+    vTaskDelay(1);
+  }
+}
+
 void setup()
 {
   delay(100);
@@ -155,6 +241,7 @@ void setup()
 
 
   UsbMidi_Setup();
+  NetworkMidi_SetUsbTxHandlers(enqueueNetToUsbShort, enqueueNetToUsbSysEx);
 
   // Register onInit() function
   Midi.attachOnInit(onInit);  
@@ -163,6 +250,17 @@ void setup()
 
   NetworkMidi_Setup();
   WebDisplayServer_Setup(displays, sizeof(displays) / sizeof(displays[0]));
+
+  g_usbToNetQueue = xQueueCreate(256, sizeof(UsbToNetMsg));
+  g_netToUsbQueue = xQueueCreate(128, sizeof(NetToUsbMsg));
+  xTaskCreatePinnedToCore(
+      UsbWorkerTask,
+      "usb_worker",
+      8192,
+      nullptr,
+      3,
+      &g_usbTaskHandle,
+      0);
 
 }
 
@@ -231,16 +329,19 @@ void loop()
       
     // }
 
-    UsbMidi_Loop();
+    if (g_usbToNetQueue != nullptr) {
+      UsbToNetMsg out = {};
+      int drained = 0;
+      while (drained < 64 && xQueueReceive(g_usbToNetQueue, &out, 0) == pdTRUE) {
+        NetworkMidi_SendFromUsb(out.data, out.len);
+        drained++;
+      }
+    }
+
     NetworkMidi_Loop();
     WebDisplayServer_Loop();
     updateDisplay0Status();
-
-    // Usb.Task();
-    if ( Midi ) {
-      MIDI_poll();
-    }
-    // delay(1);
+    delay(1);
 }
 
 
@@ -248,7 +349,6 @@ void loop()
 // Poll USB MIDI Controler and send to serial MIDI
 void MIDI_poll()
 {
-  char buf[16];
   uint8_t msg[3];
   uint8_t size = 0;
 
@@ -256,6 +356,7 @@ void MIDI_poll()
     size = Midi.RecvData(msg);
     if (size > 0) {
 #if MIDI_DEBUG_IN
+      char buf[16];
       Serial.print("USB_IN:");
       for (int i = 0; i < size; i++) {
         sprintf(buf, " %02X", msg[i]);
@@ -268,17 +369,7 @@ void MIDI_poll()
         Display0Mode_SetStatusEnabled(false);
         WebDisplayServer_ShowStoredImageOnDisplay(0);
       }
-
-      uint32_t time = (uint32_t)millis();
-      sprintf(buf, "%04X%04X:%d:", (uint16_t)(time >> 16), (uint16_t)(time & 0xFFFF), size);
-      Serial.print(buf);
-
-      for (int i = 0; i < size; i++) {
-        sprintf(buf, " %02X", msg[i]);
-        Serial.print(buf);
-      }
-      Serial.println("");
-      NetworkMidi_SendFromUsb(msg, size);
+      enqueueUsbToNet(msg, size);
     }
   }
   while (size > 0);

@@ -6,15 +6,14 @@
 #include <SPIFFS.h>
 #include <WiFiUdp.h>
 #include <sys/time.h>
-#include <usbh_midi.h>
 
 #include "config.h"
-
-extern USBH_MIDI Midi;
 
 namespace {
 WiFiUDP g_midiUdp;
 WiFiUDP g_heartbeatUdp;
+NetToUsbShortHandler g_shortHandler = nullptr;
+NetToUsbSysExHandler g_sysExHandler = nullptr;
 IPAddress g_multicastIp(
     NETWORK_MIDI_MCAST_A,
     NETWORK_MIDI_MCAST_B,
@@ -136,7 +135,7 @@ class MidiStreamParser {
       return;
     }
 
-    if (!Midi) {
+    if (g_sysExHandler == nullptr) {
       sysExLen_ = 0;
       return;
     }
@@ -144,8 +143,9 @@ class MidiStreamParser {
 #if MIDI_DEBUG_IN
     Serial.printf("USB_OUT_SYSEX: len=%u\r\n", sysExLen_);
 #endif
-    Midi.SendSysEx(sysExBuf_, sysExLen_, 0);
-    g_netToUsbPackets++;
+    if (g_sysExHandler(sysExBuf_, sysExLen_)) {
+      g_netToUsbPackets++;
+    }
     sysExLen_ = 0;
   }
 
@@ -169,7 +169,7 @@ class MidiStreamParser {
   }
 
   static void sendToUsb(uint8_t status, uint8_t data1, uint8_t data2) {
-    if (!Midi) {
+    if (g_shortHandler == nullptr) {
       return;
     }
 
@@ -177,8 +177,9 @@ class MidiStreamParser {
 #if MIDI_DEBUG_IN
     Serial.printf("USB_OUT: %02X %02X %02X\r\n", msg[0], msg[1], msg[2]);
 #endif
-    Midi.SendData(msg, 0);
-    g_netToUsbPackets++;
+    if (g_shortHandler(msg[0], msg[1], msg[2])) {
+      g_netToUsbPackets++;
+    }
   }
 
   uint8_t runningStatus_ = 0;
@@ -451,6 +452,11 @@ void NetworkMidi_Setup() {
 
   g_parser.reset();
 #endif
+}
+
+void NetworkMidi_SetUsbTxHandlers(NetToUsbShortHandler shortHandler, NetToUsbSysExHandler sysExHandler) {
+  g_shortHandler = shortHandler;
+  g_sysExHandler = sysExHandler;
 }
 
 void NetworkMidi_Loop() {
