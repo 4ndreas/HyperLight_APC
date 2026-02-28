@@ -214,6 +214,30 @@ void handleRoot() {
   html += "DNS2 <input name='dns2' value='" + cfg.dns2.toString() + "'><br>";
   html += "<button type='submit'>Save Network Config</button></form>";
 
+  NetworkMidiTransportConfig midiCfg = NetworkMidi_GetTransportConfig();
+  html += "<h3>MIDI Network</h3>";
+  html += "<form method='POST' action='/midicfg'>";
+  html += "<label>Transport:</label><select name='transport'>";
+  html += String("<option value='multicast'") + (!midiCfg.unicast ? " selected" : "") + ">Multicast (ipMIDI)</option>";
+  html += String("<option value='unicast'") + (midiCfg.unicast ? " selected" : "") + ">Unicast</option>";
+  html += "</select><br>";
+  html += "Target IP <input name='target' value='" + midiCfg.targetIp.toString() + "'><br>";
+  html += "Port <input name='port' value='" + String(midiCfg.port) + "'><br>";
+  html += "<button type='submit'>Save MIDI Config</button></form>";
+
+  NetworkMidiHeartbeatConfig hbCfg = NetworkMidi_GetHeartbeatConfig();
+  html += "<h3>Heartbeat</h3>";
+  html += "<form method='POST' action='/heartbeatcfg'>";
+  html += "<label>Enabled:</label><select name='enabled'>";
+  html += String("<option value='1'") + (hbCfg.enabled ? " selected" : "") + ">On</option>";
+  html += String("<option value='0'") + (!hbCfg.enabled ? " selected" : "") + ">Off</option>";
+  html += "</select><br>";
+  html += "Name <input name='name' value='" + hbCfg.name + "'><br>";
+  html += "Monitor Host <input name='target' value='" + hbCfg.monitorHost.toString() + "'><br>";
+  html += "Monitor Port <input name='port' value='" + String(hbCfg.monitorPort) + "'><br>";
+  html += "Interval s <input name='interval' value='" + String(hbCfg.intervalSeconds) + "'><br>";
+  html += "<button type='submit'>Save Heartbeat Config</button></form>";
+
   html += "<h3>Display 0 Mode</h3>";
   html += "<form method='POST' action='/display0mode'>";
   html += "<select name='mode'>";
@@ -334,6 +358,43 @@ void handleNetCfg() {
   g_server.send(200, "text/html", "<html><body>Saved. Rebooting...<meta http-equiv='refresh' content='4;url=/'></body></html>");
 }
 
+void handleMidiCfg() {
+  NetworkMidiTransportConfig cfg = NetworkMidi_GetTransportConfig();
+
+  if (g_server.hasArg("transport")) {
+    cfg.unicast = (g_server.arg("transport") == "unicast");
+  }
+
+  if (g_server.hasArg("port")) {
+    int p = g_server.arg("port").toInt();
+    if (p <= 0 || p > 65535) {
+      g_server.send(400, "text/plain", "Invalid MIDI port");
+      return;
+    }
+    cfg.port = static_cast<uint16_t>(p);
+  }
+
+  if (g_server.hasArg("target") && g_server.arg("target").length() > 0) {
+    IPAddress ip;
+    if (!parseIp(g_server.arg("target"), ip)) {
+      g_server.send(400, "text/plain", "Invalid target IP");
+      return;
+    }
+    cfg.targetIp = ip;
+  } else if (cfg.unicast) {
+    g_server.send(400, "text/plain", "Target IP required for unicast mode");
+    return;
+  }
+
+  if (!NetworkMidi_SaveTransportConfig(cfg)) {
+    g_server.send(500, "text/plain", "Failed to save MIDI config");
+    return;
+  }
+
+  g_server.sendHeader("Location", "/", true);
+  g_server.send(303, "text/plain", "");
+}
+
 void handleDisplay0Mode() {
   if (!g_server.hasArg("mode")) {
     g_server.send(400, "text/plain", "Missing mode");
@@ -344,6 +405,60 @@ void handleDisplay0Mode() {
   Display0Mode_SetStatusEnabled(statusMode);
   if (!statusMode) {
     renderBmpToDisplay(0, filePathForDisplay(0));
+  }
+
+  g_server.sendHeader("Location", "/", true);
+  g_server.send(303, "text/plain", "");
+}
+
+void handleHeartbeatCfg() {
+  NetworkMidiHeartbeatConfig cfg = NetworkMidi_GetHeartbeatConfig();
+
+  if (g_server.hasArg("enabled")) {
+    cfg.enabled = (g_server.arg("enabled") != "0");
+  }
+
+  if (g_server.hasArg("name")) {
+    cfg.name = g_server.arg("name");
+    cfg.name.trim();
+  }
+
+  if (g_server.hasArg("target")) {
+    String t = g_server.arg("target");
+    t.trim();
+    if (t.length() > 0) {
+      IPAddress ip;
+      if (!parseIp(t, ip)) {
+        g_server.send(400, "text/plain", "Invalid heartbeat target host");
+        return;
+      }
+      cfg.monitorHost = ip;
+    } else {
+      cfg.monitorHost = IPAddress(0, 0, 0, 0);
+    }
+  }
+
+  if (g_server.hasArg("port")) {
+    int p = g_server.arg("port").toInt();
+    if (p <= 0 || p > 65535) {
+      g_server.send(400, "text/plain", "Invalid heartbeat port");
+      return;
+    }
+    cfg.monitorPort = static_cast<uint16_t>(p);
+  }
+
+  if (g_server.hasArg("interval")) {
+    int sec = g_server.arg("interval").toInt();
+    if (sec <= 0 || sec > 3600) {
+      g_server.send(400, "text/plain", "Invalid heartbeat interval");
+      return;
+    }
+    cfg.intervalSeconds = static_cast<uint16_t>(sec);
+  }
+
+  if (!NetworkMidi_SaveHeartbeatConfig(cfg)) {
+    g_server.send(500, "text/plain", "Failed to save heartbeat config");
+    return;
   }
 
   g_server.sendHeader("Location", "/", true);
@@ -444,6 +559,8 @@ void WebDisplayServer_Setup(RGB_OLED_64x64** displays, size_t count) {
   g_server.on("/show", HTTP_GET, handleShow);
   g_server.on("/image", HTTP_GET, handleImage);
   g_server.on("/netcfg", HTTP_POST, handleNetCfg);
+  g_server.on("/midicfg", HTTP_POST, handleMidiCfg);
+  g_server.on("/heartbeatcfg", HTTP_POST, handleHeartbeatCfg);
   g_server.on("/display0mode", HTTP_POST, handleDisplay0Mode);
   g_server.on("/upload", HTTP_POST, handleUploadFinalize, handleUploadData);
   g_server.onNotFound([]() { g_server.send(404, "text/plain", "Not found"); });

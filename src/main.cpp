@@ -211,25 +211,25 @@ void updateDisplay0Status()
 
 void loop()
 {
-    currentTime = millis();
+    // currentTime = millis();
 
-    if ((currentTime - lastTime) > 5000)
-    {
-        lastTime = currentTime;
+    // if ((currentTime - lastTime) > 5000)
+    // {
+    //     lastTime = currentTime;
 
 
-        if (tick == 0){
+    //     if (tick == 0){
 
-          tick = 1; 	
-          Serial.println("Tick");
-        }
-        else{
+    //       tick = 1; 	
+    //       Serial.println("Tick");
+    //     }
+    //     else{
 
-          tick = 0;
-          Serial.println("Tock");
-        }	
+    //       tick = 0;
+    //       Serial.println("Tock");
+    //     }	
       
-    }
+    // }
 
     UsbMidi_Loop();
     NetworkMidi_Loop();
@@ -255,6 +255,15 @@ void MIDI_poll()
   do {
     size = Midi.RecvData(msg);
     if (size > 0) {
+#if MIDI_DEBUG_IN
+      Serial.print("USB_IN:");
+      for (int i = 0; i < size; i++) {
+        sprintf(buf, " %02X", msg[i]);
+        Serial.print(buf);
+      }
+      Serial.println("");
+#endif
+
       if (size == 3 && msg[0] == 0x80 && msg[1] == 0x52 && msg[2] == 0x7F) {
         Display0Mode_SetStatusEnabled(false);
         WebDisplayServer_ShowStoredImageOnDisplay(0);

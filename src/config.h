@@ -41,8 +41,12 @@
 #define NETWORK_MIDI_MCAST_B 0
 #define NETWORK_MIDI_MCAST_C 0
 #define NETWORK_MIDI_MCAST_D 37
+#define NETWORK_MIDI_BRIDGE_NAME "wt32_eth01_bridge"
 
 // OLED BMP render tuning
 #define OLED_BMP_SWAP_RB 1
+
+// MIDI debug logging
+#define MIDI_DEBUG_IN 0
 
 #endif /* CONFIG_H_ */
