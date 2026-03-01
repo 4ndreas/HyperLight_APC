@@ -116,17 +116,16 @@ void initDisplays()
     displays[i]->clearDisplay();
     displays[i]->setCShigh();
   }
-
-  for (int i = 0; i < 9; i++)
-  {
-    displays[i]->fillDisplay(0x00FF);
-    displays[i]->setCursor(0, 0);
-    displays[i]->println("Hello");
-    displays[i]->setCursor(20, 20);
-    displays[i]->print("idx: ");
-    displays[i]->print(i);
-    displays[i]->setCShigh();
-  }
+  // for (int i = 0; i < 9; i++)
+  // {
+  //   displays[i]->fillDisplay(0x00FF);
+  //   displays[i]->setCursor(0, 0);
+  //   displays[i]->println("Hello");
+  //   displays[i]->setCursor(20, 20);
+  //   displays[i]->print("idx: ");
+  //   displays[i]->print(i);
+  //   displays[i]->setCShigh();
+  // }
 }
 
 struct UsbToNetMsg {
@@ -341,7 +340,7 @@ void loop()
     NetworkMidi_Loop();
     WebDisplayServer_Loop();
     updateDisplay0Status();
-    delay(1);
+    // delay(1);
 }
 
 
